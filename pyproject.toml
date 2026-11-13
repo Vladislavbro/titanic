@@ -6,6 +6,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "kagglehub>=1.0.3",
     "matplotlib>=3.11.2",
+    "mlflow>=3.18.0",
     "nbformat>=5.11.1",
     "omegaconf>=2.4.0",
     "pandas>=3.1.0",

@@ -1,0 +1,12 @@
+seed:
+
+data:
+  train: data/raw/train.csv
+  test: data/raw/test.csv
+
+cv:
+  n_splits:
+
+model:
+
+

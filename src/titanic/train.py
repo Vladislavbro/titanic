@@ -1,14 +1,14 @@
-from omegaconf import OmegaConf
-import torch.nn as nn
+from omegaconf import DictConfig
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
-cfg = OmegaConf.merge(
-    OmegaConf.load("config.yaml"),
-    OmegaConf.from_cli(),        # переопределения из командной строки
-)
+MODELS = {
+    "logreg": LogisticRegression,
+    "rf": RandomForestClassifier,
+}
 
-if cfg.model.name == "rf":
-    rf_params = cfg.model.rf
-    model = RandomForestClassifier(n_estimators=rf_params.n_estimators,
-                                   max_depth=rf_params.max_depth,
-                                   random_state=cfg.seed)
+
+def build_model(cfg: DictConfig):
+    return MODELS[cfg.model.name](
+        **cfg.model.params, random_state=cfg.seed
+    )  # TODO: поправить кривизну

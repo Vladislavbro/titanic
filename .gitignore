@@ -1,0 +1,11 @@
+.venv/
+data/
+models/
+pycache/
+*.pyc
+.ipynb_checkpoints/
+.ruff_cache/
+.env
+.DS_Store
+mlruns/
+*.db
