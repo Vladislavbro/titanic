@@ -7,5 +7,5 @@ pycache/
 .ruff_cache/
 .env
 .DS_Store
-mlruns/
+wandb/
 *.db

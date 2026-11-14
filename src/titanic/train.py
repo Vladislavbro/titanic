@@ -8,7 +8,7 @@ MODELS = {
 }
 
 
-def build_model(cfg: DictConfig):
+def build_model(cfg: DictConfig) -> LogisticRegression | RandomForestClassifier:
     return MODELS[cfg.model.name](
         **cfg.model.params, random_state=cfg.seed
     )  # TODO: поправить кривизну
