@@ -32,7 +32,7 @@ def make_num_pipeline(impute: str, add_flag: bool, scale: bool) -> Pipeline:
     return Pipeline(steps)
 
 
-def make_cat_pipeline(impute: str, encoding: str, random_state: str) -> Pipeline:
+def make_cat_pipeline(impute: str, encoding: str, random_state: int) -> Pipeline:
     """Категориальные признаки: заполнение пропусков и кодирование."""
     # Заполнение пропусков
     if impute == "most_frequent":

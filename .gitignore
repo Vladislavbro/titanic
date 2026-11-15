@@ -9,3 +9,4 @@ pycache/
 .DS_Store
 wandb/
 *.db
+CLAUDE.md
