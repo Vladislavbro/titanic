@@ -2,7 +2,7 @@ from pathlib import Path
 
 from omegaconf import DictConfig, OmegaConf
 
-CONFIGS = Path(__file__).parents[2] / "configs"
+CONFIGS = Path(__file__).parents[1] / "configs"
 
 
 def load_config() -> DictConfig:
