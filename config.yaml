@@ -1,9 +1,11 @@
 # Общие настройки эксперимента
 experiment:
-  project: titanic
-  group: validation
-  name: baseline_v2
-  random_state: 42
+  seed: 42
+  wandb:
+    project: titanic
+    group: validation
+    name: baseline_v2
+
 
 # Данные и признаки
 data:
@@ -28,22 +30,27 @@ data:
 
 # Препроцессинг
 preprocessing:
-  num_impute: median           # mean / median
-  add_missing_flag: false      # флаг "значение было пропущено"
-  scale: true                  # standard scaler
-  cat_encoding: onehot         # onehot / target / ordinal
-  cat_impute: most_frequent    # most_frequent / missing
+  num:
+    impute: median            # mean / median
+    add_flag: false           # флаг "значение было пропущено"
+    scale: true               # standard scaler
+  cat:
+    impute: most_frequent     # most_frequent / missing
+    encoding: onehot          # onehot / target / ordinal
+    random_state: ${experiment.seed}
+
 
 # Модель
 model:
-  type: LogisticRegression
-  params:
-    max_iter: 1000
+  _target_: sklearn.linear_model.LogisticRegression
+  max_iter: 1000
+
 
 # Валидация
 validation:
-  shuffle: true  
-  random_state: ${experiment.random_state}
-  strategy: stratified_kfold
-  n_splits: 5
   metric: accuracy
+  cv:
+    _target_: sklearn.model_selection.StratifiedKFold
+    n_splits: 5
+    shuffle: true
+    random_state: ${experiment.seed}

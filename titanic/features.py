@@ -1,10 +1,10 @@
+import numpy as np
 import pandas as pd
 from omegaconf import DictConfig
-import numpy as np
 
 
 def make_features(df: pd.DataFrame, cfg_data: DictConfig) -> pd.DataFrame:
-    """Создание и отбор фичей"""
+    """Создание и отбор фичей."""
     df = df.copy()
     columns = list(cfg_data.num_features) + list(cfg_data.cat_features)
 
