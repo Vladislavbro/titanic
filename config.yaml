@@ -1,12 +1,49 @@
-seed:
+# Общие настройки эксперимента
+experiment:
+  project: titanic
+  group: validation
+  name: baseline_v2
+  random_state: 42
 
+# Данные и признаки
 data:
-  train: data/raw/train.csv
-  test: data/raw/test.csv
+  train_path: data/raw/train.csv
+  test_path: data/raw/test.csv
+  submission_path: submissions
+  target_col: Survived
+  id_col: PassengerId
 
-cv:
-  n_splits:
+  num_features:
+    - Pclass
+    - Age
+    - SibSp
+    - Parch
+    - Fare
+  cat_features:
+    - Sex
+    - Embarked
+    - Title
+    - FamilySize
+  fare_log: false              # выбросы в Fare
 
+# Препроцессинг
+preprocessing:
+  num_impute: median           # mean / median
+  add_missing_flag: false      # флаг "значение было пропущено"
+  scale: true                  # standard scaler
+  cat_encoding: onehot         # onehot / target / ordinal
+  cat_impute: most_frequent    # most_frequent / missing
+
+# Модель
 model:
+  type: LogisticRegression
+  params:
+    max_iter: 1000
 
-
+# Валидация
+validation:
+  shuffle: true  
+  random_state: ${experiment.random_state}
+  strategy: stratified_kfold
+  n_splits: 5
+  metric: accuracy
