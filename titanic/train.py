@@ -1,9 +1,10 @@
+import numpy as np
 import pandas as pd
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
     OneHotEncoder,
@@ -16,7 +17,7 @@ import wandb
 
 
 def make_num_pipeline(impute: str, add_flag: bool, scale: bool) -> Pipeline:
-    """Числовые признаки: заполнение пропусков и (опционально) скейлинг."""
+    """Собирает препроцессинг числовых фичей: импьютер и скейлер."""
     # Заполнение пропусков
     imputer = SimpleImputer(
         strategy=impute,
@@ -32,7 +33,7 @@ def make_num_pipeline(impute: str, add_flag: bool, scale: bool) -> Pipeline:
 
 
 def make_cat_pipeline(impute: str, encoding: str, random_state: int) -> Pipeline:
-    """Категориальные признаки: заполнение пропусков и кодирование."""
+    """Собирает препроцессинг категориальных фичей: импьютер и энкодер."""
     # Заполнение пропусков
     if impute == "most_frequent":
         imputer = SimpleImputer(strategy="most_frequent")
@@ -63,7 +64,7 @@ def make_cat_pipeline(impute: str, encoding: str, random_state: int) -> Pipeline
 
 
 def build_pipeline(cfg: DictConfig) -> Pipeline:
-    """Препроцессинг + модель."""
+    """Собирает пайплайн из препроцессинга и модели."""
     preprocessor = ColumnTransformer(
         [
             (
@@ -86,15 +87,25 @@ def build_pipeline(cfg: DictConfig) -> Pipeline:
     )
 
 
-def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> Pipeline:
-    """CV-оценка с логированием в wandb и обучение на всём train."""
+def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> list[Pipeline]:
+    """Прогоняет CV, логирует скор в wandb и возвращает модели фолдов."""
     pipe = build_pipeline(cfg)
     cv = instantiate(cfg.validation.cv)
     metric = cfg.validation.metric
     config = OmegaConf.to_container(cfg, resolve=True)
 
     with wandb.init(**cfg.experiment.wandb, config=config) as wb_run:
-        scores = cross_val_score(pipe, X, y, cv=cv, scoring=metric)
+        res = cross_validate(pipe, X, y, cv=cv, scoring=metric, return_estimator=True)
+        scores = res["test_score"]
         wb_run.log({f"cv_{metric}": scores.mean(), f"cv_{metric}_std": scores.std()})
 
-    return pipe.fit(X, y)
+    return res["estimator"]  # возвращает n_splits моделей
+
+
+def predict(pipes: list[Pipeline], X: pd.DataFrame) -> np.ndarray:
+    """Усредняет вероятности моделей фолдов и возвращает классы."""
+    logits = []
+    for pipe in pipes:
+        logits.append(pipe.predict_proba(X))
+    logits = np.mean(logits, axis=0)
+    return logits.argmax(axis=1)

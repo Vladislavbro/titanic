@@ -19,7 +19,7 @@ def load_data(cfg: DictConfig) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
 def prepare_data(
     cfg: DictConfig,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """Загрузка данных и построение фичей."""
+    """Загружает данные и строит фичи."""
     X_train, X_test, y_train = load_data(cfg)
     test_ids = X_test[cfg.data.id_col]
     X_train = make_features(X_train, cfg.data)

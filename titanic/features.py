@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 
 
 def make_features(df: pd.DataFrame, cfg_data: DictConfig) -> pd.DataFrame:
-    """Создание и отбор фичей."""
+    """Создаёт фичи и оставляет колонки из конфига."""
     df = df.copy()
     columns = list(cfg_data.num_features) + list(cfg_data.cat_features)
 
