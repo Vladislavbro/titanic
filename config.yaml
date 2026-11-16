@@ -20,13 +20,12 @@ data:
     - Age
     - SibSp
     - Parch
-    - Fare
+    - Fare                    # или LogFare (log1p от Fare)
   cat_features:
     - Sex
     - Embarked
     - Title
     - FamilySize
-  fare_log: false              # выбросы в Fare
 
 # Препроцессинг
 preprocessing:

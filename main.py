@@ -1,16 +1,13 @@
 from titanic.config import load_config
-from titanic.data import load_data
-from titanic.features import make_features
+from titanic.data import prepare_data, save_submission
 from titanic.train import run
 
 
 def main() -> None:
     cfg = load_config()
-    X_train, X_test, y_train = load_data(cfg)
-    test_ids = X_test[cfg.data.id_col]
-    X_train = make_features(X_train, cfg.data)
-    X_test = make_features(X_test, cfg.data)
-    scores = run(X_train, y_train, cfg)
+    X_train, X_test, y_train, test_ids = prepare_data(cfg)
+    pipe = run(X_train, y_train, cfg)
+    save_submission(test_ids, pipe.predict(X_test), cfg)
 
 
 if __name__ == "__main__":

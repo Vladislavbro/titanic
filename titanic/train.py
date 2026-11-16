@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -87,7 +86,8 @@ def build_pipeline(cfg: DictConfig) -> Pipeline:
     )
 
 
-def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> np.ndarray:
+def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> Pipeline:
+    """CV-оценка с логированием в wandb и обучение на всём train."""
     pipe = build_pipeline(cfg)
     cv = instantiate(cfg.validation.cv)
     metric = cfg.validation.metric
@@ -97,4 +97,4 @@ def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> np.ndarray:
         scores = cross_val_score(pipe, X, y, cv=cv, scoring=metric)
         wb_run.log({f"cv_{metric}": scores.mean(), f"cv_{metric}_std": scores.std()})
 
-    return scores
+    return pipe.fit(X, y)

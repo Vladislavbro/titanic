@@ -8,8 +8,8 @@ def make_features(df: pd.DataFrame, cfg_data: DictConfig) -> pd.DataFrame:
     df = df.copy()
     columns = list(cfg_data.num_features) + list(cfg_data.cat_features)
 
-    if cfg_data.fare_log:
-        df["Fare"] = np.log1p(df["Fare"])
+    if "LogFare" in columns:
+        df["LogFare"] = np.log1p(df["Fare"])
 
     if "Title" in columns:
         df["Title"] = df["Name"].str.extract(r",\s*([^.]+)\.")[0]
