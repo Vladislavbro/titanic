@@ -31,7 +31,6 @@ def save_submission(
     test_ids: pd.Series,
     preds: np.ndarray,
     cfg: DictConfig,
-    name: str = "submission",
 ) -> None:
     path = ROOT / cfg.data.submission_path
     path.mkdir(parents=True, exist_ok=True)
@@ -39,4 +38,4 @@ def save_submission(
     submission = pd.DataFrame(
         {cfg.data.id_col: test_ids, cfg.data.target_col: preds.astype(int)}
     )
-    submission.to_csv(path / f"{name}.csv", index=False)
+    submission.to_csv(path / f"{cfg.experiment.wandb.name}.csv", index=False)
