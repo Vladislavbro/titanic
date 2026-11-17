@@ -12,3 +12,5 @@ outputs/
 wandb/
 *.db
 CLAUDE.md
+catboost_info/
+multirun/

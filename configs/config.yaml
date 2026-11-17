@@ -51,3 +51,10 @@ validation:
     n_splits: 5
     shuffle: true
     random_state: ${experiment.seed}
+
+# 
+hydra:
+  job:
+    config:
+      override_dirname:
+        exclude_keys: [model]
