@@ -1,0 +1,8 @@
+# Логистическая регрессия, L1 + L2 (ElasticNet)
+
+_target_: sklearn.linear_model.LogisticRegression
+penalty: elasticnet
+C: 1.0
+l1_ratio: 0.5       # доля L1
+solver: saga
+max_iter: 5000

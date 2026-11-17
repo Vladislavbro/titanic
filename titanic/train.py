@@ -104,8 +104,8 @@ def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> list[Pipeline]:
 
 def predict(pipes: list[Pipeline], X: pd.DataFrame) -> np.ndarray:
     """Усредняет вероятности моделей фолдов и возвращает классы."""
-    logits = []
+    probs = []
     for pipe in pipes:
-        logits.append(pipe.predict_proba(X))
-    logits = np.mean(logits, axis=0)
-    return logits.argmax(axis=1)
+        probs.append(pipe.predict_proba(X))
+    probs = np.mean(probs, axis=0)
+    return probs.argmax(axis=1)

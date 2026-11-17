@@ -1,12 +1,13 @@
 .venv/
 data/
 models/
-pycache/
+__pycache__/
 *.pyc
 .ipynb_checkpoints/
 .ruff_cache/
 .env
 submissions/
+outputs/
 .DS_Store
 wandb/
 *.db

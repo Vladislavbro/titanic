@@ -1,0 +1,5 @@
+_target_: sklearn.neighbors.KNeighborsClassifier
+n_neighbors: 5
+weights: uniform    # uniform / distance
+metric: minkowski   # minkowski / euclidean / manhattan / chebyshev
+p: 2

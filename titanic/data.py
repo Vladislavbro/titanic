@@ -22,9 +22,15 @@ def prepare_data(
     """Загружает данные и строит фичи."""
     X_train, X_test, y_train = load_data(cfg)
     test_ids = X_test[cfg.data.id_col]
-    X_train = make_features(X_train, cfg.data)
-    X_test = make_features(X_test, cfg.data)
-    return X_train, X_test, y_train, test_ids
+
+    # Фичи считаются один раз на объединённых данных: все они построчные.
+    X = make_features(pd.concat([X_train, X_test]), cfg.data)
+    return X.iloc[: len(y_train)], X.iloc[len(y_train) :], y_train, test_ids
+
+
+def _safe_name(name: str) -> str:
+    """Заменяет символы, недопустимые в имени файла, на подчёркивания."""
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in name)
 
 
 def save_submission(
@@ -38,4 +44,6 @@ def save_submission(
     submission = pd.DataFrame(
         {cfg.data.id_col: test_ids, cfg.data.target_col: preds.astype(int)}
     )
-    submission.to_csv(path / f"{cfg.experiment.wandb.name}.csv", index=False)
+    submission.to_csv(
+        path / f"{_safe_name(cfg.experiment.wandb.name)}.csv", index=False
+    )
