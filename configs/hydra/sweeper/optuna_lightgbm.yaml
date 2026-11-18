@@ -1,0 +1,28 @@
+# @package hydra.sweeper
+
+# Синтаксис значений в params:
+#   range(a, b)          — целые от a до b
+#   interval(a, b)       — вещественные от a до b
+#   choice(a, b, ...)    — выбрать одно из перечисленных
+#   tag(log, interval)   — шанс попасть в 0.01–0.1 такой же, как в 0.1–1
+
+_target_: hydra_plugins.hydra_optuna_sweeper.optuna_sweeper.OptunaSweeper
+direction: maximize              # максимизируем метрику (accuracy)
+n_trials: 50                     # сколько конфигураций попробовать
+n_jobs: 1                        # триалов параллельно (1 — по очереди)
+study_name: lightgbm             # имя study в базе, чтобы продолжать ту же
+storage: sqlite:///optuna.db     # файл базы с историей триалов
+max_failure_rate: 0.0            # допустимая доля упавших триалов (0 — ни одного)
+search_space: null               # распределения вручную, вместо params
+custom_search_space: null        # своя функция для условных пространств
+sampler:
+  _target_: optuna.samplers.TPESampler
+  seed: 42
+params:                                               # параметры для перебора:
+  model.learning_rate: tag(log, interval(0.01, 0.3))    # 0.01–0.3 по лог-шкале
+  model.n_estimators: range(300, 1200, step=100)        # 300–1200: сколько деревьев
+  model.num_leaves: range(8, 64)                        # 8–64: листьев в дереве, главная ручка сложности
+  model.max_depth: range(3, 8)                          # 3–8: глубина, ограничивает num_leaves
+  model.min_child_samples: range(5, 50)                 # 5–50: минимум объектов в листе, защита от переобучения
+  model.reg_lambda: tag(log, interval(0.1, 10))         # 0.1–10 по лог-шкале: L2-регуляризация
+  model.colsample_bytree: interval(0.5, 1.0)            # 0.5–1.0: доля признаков, берущихся на дерево

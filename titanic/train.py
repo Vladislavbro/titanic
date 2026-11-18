@@ -87,7 +87,7 @@ def build_pipeline(cfg: DictConfig) -> Pipeline:
     )
 
 
-def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> list[Pipeline]:
+def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> tuple[list[Pipeline], float]:
     """Прогоняет CV, логирует скор в wandb и возвращает модели фолдов."""
     pipe = build_pipeline(cfg)
     cv = instantiate(cfg.validation.cv)
@@ -99,7 +99,7 @@ def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> list[Pipeline]:
         scores = res["test_score"]
         wb_run.log({f"cv_{metric}": scores.mean(), f"cv_{metric}_std": scores.std()})
 
-    return res["estimator"]  # возвращает n_splits моделей
+    return res["estimator"], scores.mean()  # res["estimator"] это n_splits моделей
 
 
 def predict(pipes: list[Pipeline], X: pd.DataFrame) -> np.ndarray:

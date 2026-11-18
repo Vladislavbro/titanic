@@ -6,11 +6,13 @@ from titanic.train import predict, run
 
 
 @hydra.main(config_path="configs", config_name="config", version_base=None)
-def main(cfg: DictConfig) -> None:
+def main(cfg: DictConfig) -> float:
     X_train, X_test, y_train, test_ids = prepare_data(cfg)
-    pipes = run(X_train, y_train, cfg)
+    pipes, score = run(X_train, y_train, cfg)
     preds = predict(pipes, X_test)
     save_submission(test_ids, preds, cfg)
+
+    return score
 
 
 if __name__ == "__main__":

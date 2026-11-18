@@ -21,7 +21,6 @@ data:
   id_col: PassengerId
 
   num_features:
-    - Pclass
     - Age
     - SibSp
     - Parch
@@ -31,6 +30,8 @@ data:
     - Embarked
     - Title
     - FamilySize
+    - Pclass
+
 
 # Препроцессинг
 preprocessing:
