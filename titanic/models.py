@@ -3,29 +3,58 @@ import torch
 from scipy.sparse import issparse, spmatrix
 from sklearn.base import BaseEstimator, ClassifierMixin
 from torch import nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader, TensorDataset
 
+OPTIMIZERS = {
+    "adamw": torch.optim.AdamW,
+    "adam": torch.optim.Adam,
+    "sgd": torch.optim.SGD,
+}
 
+ACTIVATIONS = {
+    "relu": nn.ReLU,
+    "gelu": nn.GELU,
+    "tanh": nn.Tanh,
+    "leaky_relu": nn.LeakyReLU,
+}
+
+
+# Наследуем sklearn-классы, чтобы модель встала в Pipeline и cross_validate
 class MLPClassifier(ClassifierMixin, BaseEstimator):
     """Обучает MLP с одним скрытым слоем на табличных данных."""
 
     def __init__(  # noqa: PLR0913
         self,
-        hidden_size: int = 128,
+        hidden_sizes: tuple[int, ...] = (128,),
+        activation: str = "relu",
+        dropout: float = 0.0,
+        batchnorm: bool = False,
+        optimizer: str = "adamw",
+        scheduler: str = "none",
         lr: float = 1e-3,
         weight_decay: float = 1e-2,
         batch_size: int = 64,
         epochs: int = 10,
+        device: str | None = None,
         random_state: int = 42,
     ) -> None:
-        self.hidden_size = hidden_size
+        self.hidden_sizes = hidden_sizes
+        self.activation = activation
+        self.dropout = dropout
+        self.batchnorm = batchnorm
+        self.optimizer = optimizer
+        self.scheduler = scheduler
         self.lr = lr
         self.weight_decay = weight_decay
         self.batch_size = batch_size
         self.epochs = epochs
+        self.device = device
         self.random_state = random_state
 
     def _pick_device(self) -> torch.device:
+        if self.device is not None:
+            return torch.device(self.device)
         if torch.cuda.is_available():
             return torch.device("cuda")
         if torch.backends.mps.is_available():
@@ -50,15 +79,28 @@ class MLPClassifier(ClassifierMixin, BaseEstimator):
             shuffle=True,
         )
 
-        self.module_ = nn.Sequential(
-            nn.Linear(self.n_features_in_, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, 1),
-        ).to(self.device_)
+        layers: list[nn.Module] = []
+        in_size = self.n_features_in_
+        for hidden_size in self.hidden_sizes:
+            layers.append(nn.Linear(in_size, hidden_size))
+
+            if self.batchnorm:
+                layers.append(nn.BatchNorm1d(hidden_size))
+            layers.append(ACTIVATIONS[self.activation]())
+
+            if self.dropout > 0:
+                layers.append(nn.Dropout(p=self.dropout))
+            in_size = hidden_size
+
+        self.module_ = nn.Sequential(*layers, nn.Linear(in_size, 1)).to(self.device_)
+
         criterion = nn.BCEWithLogitsLoss()
-        optimizer = torch.optim.AdamW(
+        optimizer = OPTIMIZERS[self.optimizer](
             self.module_.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
+        scheduler = None
+        if self.scheduler == "cosine":  # снижает планово lr
+            scheduler = CosineAnnealingLR(optimizer, T_max=self.epochs, eta_min=1e-5)
 
         self.module_.train()
         for _ in range(self.epochs):
@@ -68,6 +110,9 @@ class MLPClassifier(ClassifierMixin, BaseEstimator):
                 loss = criterion(self.module_(xb), yb)
                 loss.backward()
                 optimizer.step()
+
+            if scheduler is not None:
+                scheduler.step()
 
         return self
 
