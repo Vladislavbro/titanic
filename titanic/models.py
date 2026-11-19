@@ -1,158 +1,64 @@
+from torch._tensor import Tensor
+
 import numpy as np
 import torch
-from scipy.sparse import issparse
-from sklearn.base import BaseEstimator, ClassifierMixin
-from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import StandardScaler
+from torch import nn, optim
+from torch.utils.data import DataLoader, TensorDataset, random_split
 
-ACTIVATIONS = {
-    "relu": nn.ReLU,
-    "gelu": nn.GELU,
-    "tanh": nn.Tanh,
-    "leaky_relu": nn.LeakyReLU,
-}
+from titanic.data import prepare_data
 
-OPTIMIZERS = {
-    "adam": torch.optim.Adam,
-    "adamw": torch.optim.AdamW,
-    "sgd": torch.optim.SGD,
-}
+device = torch.device('mps' if torch.cuda.is_available() else 'cpu')
+torch.manual_seed(42)
 
 
-class FocalLoss(nn.Module):
-    """Считает focal loss по логитам для бинарной классификации."""
+# Структура:
+#   - На вход модель получает фолды из cv: 80/20 трейн и тест после препроцессинга
+#   - Надо разбить данные на train val
+#   - Обучить модель
 
-    def __init__(self, alpha: float = 0.25, gamma: float = 2.0) -> None:
-        super().__init__()
-        self.alpha = alpha
-        self.gamma = gamma
+train_ds = TensorDataset(X_train, y_train)
+val_ds = TensorDataset(X_val, y_val)
 
-    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-        bce = nn.functional.binary_cross_entropy_with_logits(
-            logits, targets, reduction="none"
-        )
-        p = torch.sigmoid(logits)
-        p_t = p * targets + (1 - p) * (1 - targets)
-        alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
-        return (alpha_t * bce * (1 - p_t) ** self.gamma).mean()
+train_loader = DataLoader(train_ds, batch_size=64)
+val_loader = DataLoader(val_ds, batch_size=64)
 
 
-class MLPClassifier(ClassifierMixin, BaseEstimator):
-    """Обучает MLP на табличных данных через sklearn-интерфейс."""
+# ===== Модель: выдаёт ЛОГИТЫ, без Sigmoid на конце =====
+model = nn.Sequential(
+    nn.Linear(X_train.shape[1], 128),
+    nn.ReLU(),
+    nn.Linear(128, 1),
+).to(device)
 
-    def __init__(  # noqa: PLR0913
-        self,
-        hidden_sizes: tuple[int, ...] = (128,),
-        activation: str = "relu",
-        dropout: float = 0.0,
-        batchnorm: bool = False,
-        optimizer: str = "adamw",
-        scheduler: str = "none",
-        loss: str = "bce",
-        lr: float = 1e-3,
-        weight_decay: float = 1e-2,
-        batch_size: int = 64,
-        epochs: int = 100,
-        device: str | None = None,
-        random_state: int = 42,
-    ) -> None:
-        self.hidden_sizes = hidden_sizes
-        self.activation = activation
-        self.dropout = dropout
-        self.batchnorm = batchnorm
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.loss = loss
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.batch_size = batch_size
-        self.epochs = epochs
-        self.device = device
-        self.random_state = random_state
+criterion = nn.BCEWithLogitsLoss()  # sigmoid + BCE, то есть logloss
+optimizer = optim.AdamW(
+    model.parameters(), lr=1e-3, weight_decay=1e-2
+)  # model.parameters() - это w и b слоев
 
-    def _build_module(self, n_features: int) -> nn.Sequential:
-        layers: list[nn.Module] = []
-        prev = n_features
-        for size in self.hidden_sizes:
-            layers.append(nn.Linear(prev, size))
-            if self.batchnorm:
-                layers.append(nn.BatchNorm1d(size))
-            layers.append(ACTIVATIONS[self.activation]())
-            if self.dropout > 0:
-                layers.append(nn.Dropout(self.dropout))
-            prev = size
-        layers.append(nn.Linear(prev, 1))
-        return nn.Sequential(*layers)
 
-    def _make_criterion(self) -> nn.Module:
-        if self.loss == "focal":
-            return FocalLoss()
-        return nn.BCEWithLogitsLoss()
+# ===== Обучение =====
+for epoch in range(10):
+    model.train()
+    for xb, yb in train_loader:  # возращает X и y батчами
+        xb, yb = xb.to(device), yb.to(device)
+        loss = criterion(model(xb), yb)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-    def _make_scheduler(
-        self, optimizer: torch.optim.Optimizer
-    ) -> torch.optim.lr_scheduler.LRScheduler | None:
-        if self.scheduler == "cosine":
-            return torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=self.epochs
-            )
-        return None
 
-    def _make_loader(self, X: torch.Tensor, y: torch.Tensor | None) -> DataLoader:
-        dataset = TensorDataset(X) if y is None else TensorDataset(X, y)
-        return DataLoader(dataset, batch_size=self.batch_size, shuffle=y is not None)
+# ===== Оценка =====
+model.eval()  # dropout/batchnorm в режиме инференса
+batches = []  # сюда кладём выход модели по одному батчу
 
-    @staticmethod
-    def _pick_device() -> str:
-        if torch.cuda.is_available():
-            return "cuda"
-        if torch.backends.mps.is_available():
-            return "mps"
-        return "cpu"
+with torch.no_grad():  # граф не строим, памяти не тратим
+    for xb, yb in val_loader:  # xb: (batch, n_features), yb: (batch, 1)
+        out = model(xb.to(device))  # out: (batch, 1) — логиты
+        batches.append(out)
 
-    def _to_tensor(self, X: np.ndarray) -> torch.Tensor:
-        X = X.toarray() if issparse(X) else np.asarray(X)
-        return torch.tensor(X, dtype=torch.float32)
-
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "MLPClassifier":
-        torch.manual_seed(self.random_state)
-
-        self.classes_ = np.unique(np.asarray(y))
-        self.n_features_in_ = X.shape[1]
-        self.device_ = self.device or self._pick_device()
-        self.module_ = self._build_module(self.n_features_in_).to(self.device_)
-
-        X_tensor = self._to_tensor(X)
-        y_tensor = torch.tensor(np.asarray(y, dtype=np.float32).reshape(-1, 1))
-        loader = self._make_loader(X_tensor, y_tensor)
-
-        criterion = self._make_criterion()
-        optimizer = OPTIMIZERS[self.optimizer](
-            self.module_.parameters(), lr=self.lr, weight_decay=self.weight_decay
-        )
-        scheduler = self._make_scheduler(optimizer)
-
-        self.module_.train()
-        for _ in range(self.epochs):
-            for xb, yb in loader:
-                xb, yb = xb.to(self.device_), yb.to(self.device_)
-                optimizer.zero_grad()
-                loss = criterion(self.module_(xb), yb)
-                loss.backward()
-                optimizer.step()
-            if scheduler is not None:
-                scheduler.step()
-
-        return self
-
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        self.module_.eval()
-        batches = []
-        with torch.no_grad():
-            for (xb,) in self._make_loader(self._to_tensor(X), None):
-                batches.append(torch.sigmoid(self.module_(xb.to(self.device_))))
-        proba = torch.cat(batches).cpu().numpy().ravel()
-        return np.column_stack([1 - proba, proba])
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        return self.classes_[self.predict_proba(X).argmax(axis=1)]
+logits = torch.cat(batches)  # (N, 1) — все батчи в один тензор
+proba = torch.sigmoid(logits)
+proba = proba.cpu().numpy()
+proba = proba.ravel()  # (N,) — плоский, как ждёт sklearn
