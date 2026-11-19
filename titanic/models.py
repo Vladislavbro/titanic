@@ -1,64 +1,87 @@
-from torch._tensor import Tensor
-
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
-from sklearn.preprocessing import StandardScaler
-from torch import nn, optim
-from torch.utils.data import DataLoader, TensorDataset, random_split
-
-from titanic.data import prepare_data
-
-device = torch.device('mps' if torch.cuda.is_available() else 'cpu')
-torch.manual_seed(42)
+from scipy.sparse import issparse, spmatrix
+from sklearn.base import BaseEstimator, ClassifierMixin
+from torch import nn
+from torch.utils.data import DataLoader, TensorDataset
 
 
-# Структура:
-#   - На вход модель получает фолды из cv: 80/20 трейн и тест после препроцессинга
-#   - Надо разбить данные на train val
-#   - Обучить модель
+class MLPClassifier(ClassifierMixin, BaseEstimator):
+    """Обучает MLP с одним скрытым слоем на табличных данных."""
 
-train_ds = TensorDataset(X_train, y_train)
-val_ds = TensorDataset(X_val, y_val)
+    def __init__(  # noqa: PLR0913
+        self,
+        hidden_size: int = 128,
+        lr: float = 1e-3,
+        weight_decay: float = 1e-2,
+        batch_size: int = 64,
+        epochs: int = 10,
+        random_state: int = 42,
+    ) -> None:
+        self.hidden_size = hidden_size
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.random_state = random_state
 
-train_loader = DataLoader(train_ds, batch_size=64)
-val_loader = DataLoader(val_ds, batch_size=64)
+    def _pick_device(self) -> torch.device:
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
 
+    def _to_tensor(self, X: np.ndarray | spmatrix) -> torch.Tensor:
+        X = X.toarray() if issparse(X) else np.asarray(X)
+        return torch.tensor(X, dtype=torch.float32)
 
-# ===== Модель: выдаёт ЛОГИТЫ, без Sigmoid на конце =====
-model = nn.Sequential(
-    nn.Linear(X_train.shape[1], 128),
-    nn.ReLU(),
-    nn.Linear(128, 1),
-).to(device)
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "MLPClassifier":
+        torch.manual_seed(self.random_state)
+        self.classes_ = np.unique(np.asarray(y))
+        self.n_features_in_ = X.shape[1]
+        self.device_ = self._pick_device()
 
-criterion = nn.BCEWithLogitsLoss()  # sigmoid + BCE, то есть logloss
-optimizer = optim.AdamW(
-    model.parameters(), lr=1e-3, weight_decay=1e-2
-)  # model.parameters() - это w и b слоев
+        X_tensor = self._to_tensor(X)
+        y_tensor = torch.tensor(np.asarray(y, dtype=np.float32).reshape(-1, 1))
+        loader = DataLoader(
+            TensorDataset(X_tensor, y_tensor),
+            batch_size=self.batch_size,
+            shuffle=True,
+        )
 
+        self.module_ = nn.Sequential(
+            nn.Linear(self.n_features_in_, self.hidden_size),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, 1),
+        ).to(self.device_)
+        criterion = nn.BCEWithLogitsLoss()
+        optimizer = torch.optim.AdamW(
+            self.module_.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
 
-# ===== Обучение =====
-for epoch in range(10):
-    model.train()
-    for xb, yb in train_loader:  # возращает X и y батчами
-        xb, yb = xb.to(device), yb.to(device)
-        loss = criterion(model(xb), yb)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        self.module_.train()
+        for _ in range(self.epochs):
+            for xb, yb in loader:
+                xb, yb = xb.to(self.device_), yb.to(self.device_)
+                optimizer.zero_grad()
+                loss = criterion(self.module_(xb), yb)
+                loss.backward()
+                optimizer.step()
 
+        return self
 
-# ===== Оценка =====
-model.eval()  # dropout/batchnorm в режиме инференса
-batches = []  # сюда кладём выход модели по одному батчу
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        self.module_.eval()
+        batches = []
+        with torch.no_grad():
+            loader = DataLoader(
+                TensorDataset(self._to_tensor(X)), batch_size=self.batch_size
+            )
+            for (xb,) in loader:
+                batches.append(torch.sigmoid(self.module_(xb.to(self.device_))))
+        proba = torch.cat(batches).cpu().numpy().ravel()
+        return np.column_stack([1 - proba, proba])
 
-with torch.no_grad():  # граф не строим, памяти не тратим
-    for xb, yb in val_loader:  # xb: (batch, n_features), yb: (batch, 1)
-        out = model(xb.to(device))  # out: (batch, 1) — логиты
-        batches.append(out)
-
-logits = torch.cat(batches)  # (N, 1) — все батчи в один тензор
-proba = torch.sigmoid(logits)
-proba = proba.cpu().numpy()
-proba = proba.ravel()  # (N,) — плоский, как ждёт sklearn
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self.classes_[self.predict_proba(X).argmax(axis=1)]
