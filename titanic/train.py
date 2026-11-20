@@ -1,10 +1,13 @@
+from typing import cast
+
 import numpy as np
 import pandas as pd
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
+from sklearn.base import TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_val_predict, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
     OneHotEncoder,
@@ -24,6 +27,7 @@ def make_num_pipeline(impute: str, add_flag: bool, scale: bool) -> Pipeline:
         add_indicator=add_flag,
     )
     steps = [("impute", imputer)]
+    steps: list[tuple[str, TransformerMixin]] = [("impute", imputer)]
 
     # Масштабирование
     if scale:
@@ -87,19 +91,37 @@ def build_pipeline(cfg: DictConfig) -> Pipeline:
     )
 
 
-def run(X: pd.DataFrame, y: pd.Series, cfg: DictConfig) -> tuple[list[Pipeline], float]:
-    """Прогоняет CV, логирует скор в wandb и возвращает модели фолдов."""
-    pipe = build_pipeline(cfg)
+def fit_cv(
+    cfg: DictConfig, X: pd.DataFrame, y: pd.Series
+) -> tuple[list[Pipeline], np.ndarray, np.ndarray, str]:
+    """Считает CV, возвращает модели фолдов, OOF-вероятности класса 1, скоры и метрику."""
     cv = instantiate(cfg.validation.cv)
     metric = cfg.validation.metric
-    config = OmegaConf.to_container(cfg, resolve=True)
+    pipe = build_pipeline(cfg)
+    res = cross_validate(pipe, X, y, cv=cv, scoring=metric, return_estimator=True)
+
+    # out-of-fold (oof): сохраняем вероятность класса 1 для объектов, на которых каждая модель не училась. Берем вероятность класса 1
+    oof = cross_val_predict(pipe, X, y, cv=cv, method="predict_proba")[:, 1]
+    scores = res["test_score"]  # предсказания по фолдам
+    pipes = res["estimator"]  # n_splits моделей
+    return pipes, oof, scores, metric
+
+
+def run(
+    X: pd.DataFrame,
+    y: pd.Series,
+    cfg: DictConfig,
+) -> tuple[list[Pipeline], np.ndarray, float]:
+    """Прогоняет CV, логирует скор, возвращает модели фолдов, OOF-вероятности и средний скор."""
+    config = cast(  # cast показывает тип pyrefly
+        "dict[str, object]", OmegaConf.to_container(cfg, resolve=True)
+    )
 
     with wandb.init(**cfg.experiment.wandb, config=config) as wb_run:
-        res = cross_validate(pipe, X, y, cv=cv, scoring=metric, return_estimator=True)
-        scores = res["test_score"]
+        pipes, oof, scores, metric = fit_cv(cfg, X, y)
         wb_run.log({f"cv_{metric}": scores.mean(), f"cv_{metric}_std": scores.std()})
 
-    return res["estimator"], scores.mean()  # res["estimator"] это n_splits моделей
+    return pipes, oof, scores.mean()
 
 
 def predict(pipes: list[Pipeline], X: pd.DataFrame) -> np.ndarray:
