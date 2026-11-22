@@ -83,3 +83,11 @@ uv run main.py -m model=xgboost  hydra/sweeper=optuna_xgboost
 ```
 
 Триалы копятся в `optuna.db`, прерванный перебор продолжается с того же места.
+
+### Ансамбли
+
+```bash
+uv run blend.py
+```
+
+Читает `submissions/*__oof.csv` и `*__test_proba.csv`, пишет `submissions/ensemble_<вариант>.csv` и таблицу `submissions/ensemble_results.csv`. Список моделей, порог, варианты смешивания и мета-модели — в `configs/ensemble.yaml`.

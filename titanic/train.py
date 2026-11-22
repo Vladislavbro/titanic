@@ -125,9 +125,6 @@ def run(
 
 
 def predict(pipes: list[Pipeline], X: pd.DataFrame) -> np.ndarray:
-    """Усредняет вероятности моделей фолдов и возвращает классы."""
-    probs = []
-    for pipe in pipes:
-        probs.append(pipe.predict_proba(X))
-    probs = np.mean(probs, axis=0)
-    return probs.argmax(axis=1)
+    """Усредняет вероятности моделей фолдов и возвращает вероятность класса 1."""
+    probs = [pipe.predict_proba(X)[:, 1] for pipe in pipes]
+    return np.mean(probs, axis=0)

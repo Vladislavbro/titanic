@@ -21,7 +21,7 @@ def prepare_data(
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
     """Загружает данные и строит фичи."""
     X_train, X_test, y_train = load_data(cfg)
-    train_ids = X_train[cfg.data]
+    train_ids = X_train[cfg.data.id_col]
     test_ids = X_test[cfg.data.id_col]
     X_train = make_features(X_train, cfg.data)
     X_test = make_features(X_test, cfg.data)
@@ -29,7 +29,13 @@ def prepare_data(
 
 
 # PassengerId, y, proba.
-def save_oof(cfg, train_ids, y_train, oof) -> None:
+def save_oof(
+    cfg: DictConfig,
+    train_ids: pd.Series,
+    y_train: pd.Series,
+    oof: np.ndarray,
+) -> None:
+    """Сохраняет OOF-вероятности на трейне."""
     path = ROOT / cfg.data.submission_path
     path.mkdir(parents=True, exist_ok=True)
 
@@ -45,13 +51,17 @@ def save_oof(cfg, train_ids, y_train, oof) -> None:
 
 def save_submission(
     test_ids: pd.Series,
-    preds: np.ndarray,
+    probs: np.ndarray,
     cfg: DictConfig,
 ) -> None:
+    """Сохраняет вероятности и классы предсказаний на тесте."""
     path = ROOT / cfg.data.submission_path
     path.mkdir(parents=True, exist_ok=True)
 
+    proba = pd.DataFrame({cfg.data.id_col: test_ids, "proba": probs})
+    proba.to_csv(path / f"{cfg.experiment.wandb.name}_test_proba.csv", index=False)
+
     submission = pd.DataFrame(
-        {cfg.data.id_col: test_ids, cfg.data.target_col: preds.astype(int)}
+        {cfg.data.id_col: test_ids, cfg.data.target_col: (probs >= 0.5).astype(int)}
     )
     submission.to_csv(path / f"{cfg.experiment.wandb.name}.csv", index=False)
