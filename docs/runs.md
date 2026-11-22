@@ -66,7 +66,7 @@ uv run main.py -m model=xgboost  hydra/sweeper=optuna_xgboost
 
 ## Ансамбли
 
-`blend.py` читает `submissions/*__oof.csv` и `*__test_proba.csv`, поэтому сначала прогоняются базовые модели. Список моделей, порог, варианты смешивания и мета-модели — `configs/ensemble.yaml`.
+`blend.py` читает `submissions/*__oof.csv` и `*__test_proba.csv`, поэтому сначала прогоняются базовые модели. Список моделей, порог, варианты смешивания и мета-модели — `configs/ensemble/default.yaml`.
 
 ```bash
 uv run blend.py

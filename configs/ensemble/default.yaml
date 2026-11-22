@@ -1,7 +1,8 @@
+# @package _global_
 # Настройки ансамбля: какие модели смешиваем и какими способами
 
 defaults:
-  - config
+  - /config
   - _self_
 
 ensemble:
