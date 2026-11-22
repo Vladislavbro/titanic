@@ -9,6 +9,7 @@ experiment:
   wandb:
     project: titanic
     group: validation
+    mode: ${oc.env:WANDB_MODE,offline}  # offline — без аккаунта wandb, online — синхронизация
     name: ${hydra:runtime.choices.model}_${hydra:job.override_dirname}  # имя рана: имя и параметры модели
 
 

@@ -11,4 +11,4 @@ dropout: 0.0               # 0.0 / 0.3 / 0.5
 batchnorm: false           # true — BatchNorm1d после скрытого слоя
 optimizer: adamw           # adamw / adam / sgd
 scheduler: none            # none / cosine
-device: mps                 # mps / cuda / cpu
+device: null               # null — авто (cuda / mps / cpu), либо cuda / mps / cpu

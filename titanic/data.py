@@ -53,15 +53,17 @@ def save_submission(
     test_ids: pd.Series,
     probs: np.ndarray,
     cfg: DictConfig,
+    name: str | None = None,
 ) -> None:
     """Сохраняет вероятности и классы предсказаний на тесте."""
     path = ROOT / cfg.data.submission_path
     path.mkdir(parents=True, exist_ok=True)
+    stem = name or cfg.experiment.wandb.name
 
     proba = pd.DataFrame({cfg.data.id_col: test_ids, "proba": probs})
-    proba.to_csv(path / f"{cfg.experiment.wandb.name}_test_proba.csv", index=False)
+    proba.to_csv(path / f"{stem}_test_proba.csv", index=False)
 
     submission = pd.DataFrame(
         {cfg.data.id_col: test_ids, cfg.data.target_col: (probs >= 0.5).astype(int)}
     )
-    submission.to_csv(path / f"{cfg.experiment.wandb.name}.csv", index=False)
+    submission.to_csv(path / f"{stem}.csv", index=False)

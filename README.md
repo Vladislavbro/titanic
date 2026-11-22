@@ -1,93 +1,51 @@
 # Titanic
 
-## Установка
+Классификация выживших пассажиров: препроцессинг в sklearn-пайплайне, 5-fold CV, сравнение моделей и ансамбли.
 
-```bash
-uv sync
-```
+## Стек
+
+- Python 3.13, `uv`, hydra + omegaconf для конфигов, wandb для логов
+- sklearn: препроцессинг, логистическая регрессия, KNN, деревья, Random Forest, стекинг
+- CatBoost, LightGBM, XGBoost
+- PyTorch: собственный `MLPClassifier` в стиле sklearn
+- Метрика — accuracy, валидация — `StratifiedKFold(5)`
 
 ## Запуск
 
-Одна модель:
-
 ```bash
-uv run main.py model=knn
+uv sync                      # окружение
+uv run main.py               # один прогон, по умолчанию logreg
+uv run main.py model=catboost
+uv run main.py -m model=logreg,knn,tree,rf,catboost,lightgbm,xgboost,mlp   # все модели
+uv run blend.py              # ансамбли поверх сохранённых OOF-вероятностей
 ```
 
-Все модели подряд:
+Модель выбирается конфигом в `configs/model/`, гиперпараметры — полями этого конфига или оверрайдами (`uv run main.py model=rf model.max_depth=5`).
 
-```bash
-uv run main.py -m model=logreg,logreg_l1,logreg_elasticnet,knn,tree,rf
-```
+Что появляется в `submissions/`:
 
-`-m` прогоняет все комбинации по очереди. Конфиги моделей лежат в `configs/model/`, скоры логируются в wandb.
+- `<модель>.csv` — сабмит для Kaggle
+- `<модель>__oof.csv` — out-of-fold вероятности (используются блендером)
+- `<модель>__test_proba.csv` — вероятности на тесте
+- `ensemble_<вариант>.csv` и `ensemble_results.csv` — ансамбли и их OOF-скор
 
-### Линейные модели
+wandb по умолчанию работает offline; для синхронизации — `WANDB_MODE=online uv run main.py`.
 
-```bash
-uv run main.py -m model=logreg model.C=0.01,0.1,1,10
-uv run main.py -m model=logreg_l1 model.C=0.01,0.1,1
-uv run main.py -m model=logreg_elasticnet model.l1_ratio=0.2,0.5,0.8
-```
+Остальные запуски (перебор гиперпараметров, Optuna, MLP, ансамбли, CatBoost с early stopping) — в [docs/runs.md](docs/runs.md).
 
-### KNN
+## Результаты
 
-```bash
-uv run main.py -m model=knn model.n_neighbors=3,5,11,21 model.weights=uniform,distance
-```
-
-### Деревья
-
-```bash
-uv run main.py -m model=tree model.max_depth=3,5,7
-uv run main.py -m model=rf model.max_depth=5,7
-```
-
-### Бустинги
-
-```bash
-uv run main.py -m model=catboost model.depth=2,3,4,6
-uv run main.py -m model=catboost model.learning_rate=0.03,0.05,0.1 model.iterations=300,1000
-
-uv run main.py -m model=lightgbm model.num_leaves=15,31,63
-uv run main.py -m model=lightgbm model.learning_rate=0.03,0.05,0.1
-
-uv run main.py -m model=xgboost model.max_depth=3,4,6
-uv run main.py -m model=xgboost model.learning_rate=0.03,0.05,0.1
-```
-
-### Нейросеть
-
-```bash
-uv run main.py model=mlp
-uv run main.py -m model=mlp model.hidden_sizes=[64],[64,32],[64,32,16]
-uv run main.py -m model=mlp model.activation=relu,gelu,tanh model.dropout=0,0.3,0.5
-uv run main.py -m model=mlp model.batchnorm=true,false model.optimizer=adamw,adam,sgd
-uv run main.py -m model=mlp model.scheduler=none,cosine model.lr=1e-2,1e-3
-```
-
-Руками, без CV и wandb, на разбиении 80/20 — `scripts/sandbox_mlp.py`:
-
-```bash
-uv run python -m scripts.sandbox_mlp
-```
-
-Печатает лосс, auc и accuracy по эпохам, пишет `submissions/sandbox_mlp.csv`.
-
-### Optuna
-
-```bash
-uv run main.py -m model=catboost hydra/sweeper=optuna_catboost
-uv run main.py -m model=lightgbm hydra/sweeper=optuna_lightgbm
-uv run main.py -m model=xgboost  hydra/sweeper=optuna_xgboost
-```
-
-Триалы копятся в `optuna.db`, прерванный перебор продолжается с того же места.
-
-### Ансамбли
-
-```bash
-uv run blend.py
-```
-
-Читает `submissions/*__oof.csv` и `*__test_proba.csv`, пишет `submissions/ensemble_<вариант>.csv` и таблицу `submissions/ensemble_results.csv`. Список моделей, порог, варианты смешивания и мета-модели — в `configs/ensemble.yaml`.
+| модель | CV accuracy | LB |
+| --- | --- | --- |
+| catboost | 0.8429 | — |
+| xgboost | 0.8406 | — |
+| lightgbm | 0.8350 | — |
+| rf | 0.8294 | — |
+| logreg | 0.8272 | — |
+| mlp | 0.8215 | — |
+| knn | 0.8125 | — |
+| ensemble stack_logreg | 0.8507 | 0.77511 |
+| ensemble mean | 0.8496 | 0.77033 |
+| ensemble vote | 0.8384 | 0.77033 |
+| catboost_earlystop | 0.8361 | 0.77272 |
+| baseline «женщины выживают» | 0.7868 | 0.76555 |

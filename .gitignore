@@ -1,5 +1,8 @@
 .venv/
-data/
+data/*
+!data/raw/
+!data/raw/*.csv
+data/raw/.complete/
 models/
 __pycache__/
 *.pyc
