@@ -74,13 +74,3 @@ uv run blend.py ensemble.models=[catboost,xgboost,mlp] ensemble.variants=[mean,s
 ```
 
 Варианты: `mean` — среднее вероятностей, `vote` — большинство голосов, `stack_logreg` и `stack_ridge` — мета-модель поверх OOF. Скор считается по OOF, сабмиты — `submissions/ensemble_<вариант>.csv`.
-
-## CatBoost с early stopping
-
-Число деревьев подбирается early stopping по фолдам, затем модель обучается на всём трейне и предсказывает тест один раз.
-
-```bash
-uv run python -m scripts.catboost_earlystop
-```
-
-Сабмит — `submissions/catboost_earlystop.csv`.

@@ -1,5 +1,0 @@
-# Прогон CatBoost с early stopping на всём трейне
-
-defaults:
-  - config
-  - override /model: catboost
