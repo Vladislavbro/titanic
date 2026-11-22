@@ -35,17 +35,21 @@ wandb по умолчанию работает offline; для синхрони�
 
 ## Результаты
 
-| модель | CV accuracy | LB |
-| --- | --- | --- |
-| catboost | 0.8429 | — |
-| xgboost | 0.8406 | — |
-| lightgbm | 0.8350 | — |
-| rf | 0.8294 | — |
-| logreg | 0.8272 | — |
-| mlp | 0.8215 | — |
-| knn | 0.8125 | — |
-| ensemble stack_logreg | 0.8507 | 0.77511 |
-| ensemble mean | 0.8496 | 0.77033 |
-| ensemble vote | 0.8384 | 0.77033 |
-| catboost_earlystop | 0.8361 | 0.77272 |
-| baseline «женщины выживают» | 0.7868 | 0.76555 |
+| сабмит | CV accuracy | LB | человек из 418 |
+| --- | --- | --- | --- |
+| tabpfn_playground | — | **0.79665** | 333 |
+| holdout 80/20 | — | 0.77751 | 325 |
+| catboost_pclass | — | 0.77751 | 325 |
+| ensemble stack_logreg | 0.8507 | 0.77511 | 324 |
+| xgboost (5 фолдов) | 0.8473 | 0.77511 | 324 |
+| catboost_earlystop | 0.8361 | 0.77272 | 323 |
+| ensemble mean | 0.8496 | 0.77033 | 322 |
+| ensemble vote | 0.8384 | 0.77033 | 322 |
+| catboost depth=3 | 0.8507 | 0.76794 | 321 |
+| catboost (1) | 0.8563 | 0.76555 | 320 |
+| baseline «женщины выживают» | 0.7868 | 0.76555 | 320 |
+| catboost depth=4 | 0.8530 | 0.75837 | 317 |
+| ensemble stack_ridge | 0.8440 | 0.75837 | 317 |
+| lightgbm | 0.8530 | 0.75358 | 315 |
+
+CV не ранжирует LB: модель с CV .8563 дала столько же, сколько правило «женщины выживают», а лучший LB — у TabPFN.
