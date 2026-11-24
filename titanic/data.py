@@ -28,6 +28,13 @@ def prepare_data(
     return X_train, X_test, y_train, train_ids, test_ids
 
 
+def run_dir(cfg: DictConfig, name: str | None = None) -> Path:
+    """Возвращает папку прогона в submissions, создавая её при необходимости."""
+    path = ROOT / cfg.data.submission_path / (name or cfg.experiment.wandb.name)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 # PassengerId, y, proba.
 def save_oof(
     cfg: DictConfig,
@@ -36,9 +43,6 @@ def save_oof(
     oof: np.ndarray,
 ) -> None:
     """Сохраняет OOF-вероятности на трейне."""
-    path = ROOT / cfg.data.submission_path
-    path.mkdir(parents=True, exist_ok=True)
-
     out = pd.DataFrame(
         {
             f"{cfg.data.id_col}": train_ids,
@@ -46,7 +50,7 @@ def save_oof(
             "proba": oof,
         }
     )
-    out.to_csv(path / f"{cfg.experiment.wandb.name}_oof.csv", index=False)
+    out.to_csv(run_dir(cfg) / "oof.csv", index=False)
 
 
 def save_submission(
@@ -56,14 +60,12 @@ def save_submission(
     name: str | None = None,
 ) -> None:
     """Сохраняет вероятности и классы предсказаний на тесте."""
-    path = ROOT / cfg.data.submission_path
-    path.mkdir(parents=True, exist_ok=True)
-    stem = name or cfg.experiment.wandb.name
+    path = run_dir(cfg, name)
 
     proba = pd.DataFrame({cfg.data.id_col: test_ids, "proba": probs})
-    proba.to_csv(path / f"{stem}_test_proba.csv", index=False)
+    proba.to_csv(path / "test_proba.csv", index=False)
 
     submission = pd.DataFrame(
         {cfg.data.id_col: test_ids, cfg.data.target_col: (probs >= 0.5).astype(int)}
     )
-    submission.to_csv(path / f"{stem}.csv", index=False)
+    submission.to_csv(path / f"{path.name}.csv", index=False)

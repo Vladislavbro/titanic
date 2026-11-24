@@ -19,8 +19,9 @@ def make_features(df: pd.DataFrame, cfg_data: DictConfig) -> pd.DataFrame:
 
     if "FamilySize" in columns:
         df["FamilySize"] = df["SibSp"] + df["Parch"] + 1
-        df["FamilySize"] = pd.cut(
-            df["FamilySize"], bins=[0, 1, 4, 100], labels=["alone", "small", "large"]
-        )
+
+    if "FamilySize" in columns and "IsAlone" in columns:
+        df["IsAlone"] = 0
+        df.loc[df["FamilySize"] == 1, "IsAlone"] = 1
 
     return df[columns]

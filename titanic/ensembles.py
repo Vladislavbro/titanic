@@ -10,9 +10,29 @@ from sklearn.model_selection import cross_val_predict
 from titanic.data import ROOT
 
 
+def resolve_run(cfg: DictConfig, model: str) -> Path:
+    """Находит папку прогона модели в submissions."""
+    base = ROOT / cfg.data.submission_path
+    runs = cfg.ensemble.get("runs")
+    if runs is not None and model in runs:
+        return base / runs[model]
+    if (base / model).is_dir():
+        return base / model
+    candidates = sorted(path for path in base.glob(f"{model}_*") if path.is_dir())
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        raise FileNotFoundError(f"нет прогонов модели {model} в {base}")
+    names = ", ".join(path.name for path in candidates)
+    raise ValueError(
+        f"несколько прогонов модели {model}: {names};"
+        f" выбери папку в ensemble.runs.{model}"
+    )
+
+
 def run_path(cfg: DictConfig, model: str, kind: str) -> Path:
     """Возвращает путь к файлу прогона модели."""
-    return ROOT / cfg.data.submission_path / f"{model}__{kind}.csv"
+    return resolve_run(cfg, model) / f"{kind}.csv"
 
 
 def load_oof(cfg: DictConfig) -> tuple[np.ndarray, np.ndarray]:
@@ -87,10 +107,10 @@ def save_submission(
     cfg: DictConfig, name: str, ids: pd.Index, preds: np.ndarray
 ) -> None:
     """Сохраняет сабмит варианта ансамбля."""
-    path = ROOT / cfg.data.submission_path
+    path = ROOT / cfg.data.submission_path / f"ensemble_{name}"
     path.mkdir(parents=True, exist_ok=True)
     out = pd.DataFrame({cfg.data.id_col: ids, cfg.data.target_col: preds})
-    out.to_csv(path / f"ensemble_{name}.csv", index=False)
+    out.to_csv(path / f"{path.name}.csv", index=False)
 
 
 def run(cfg: DictConfig) -> pd.DataFrame:

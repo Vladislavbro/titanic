@@ -1,8 +1,11 @@
 import hydra
+from dotenv import load_dotenv
 from omegaconf import DictConfig
 
 from titanic.data import prepare_data, save_oof, save_submission
 from titanic.train import predict, run
+
+load_dotenv()
 
 
 @hydra.main(config_path="configs", config_name="config", version_base=None)

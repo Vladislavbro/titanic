@@ -155,7 +155,7 @@ def main() -> None:
         int
     )
     save_submission(test_ids, preds, cfg)
-    print(f"сабмишен: {cfg.data.submission_path}/{cfg.experiment.wandb.name}.csv")
+    print(f"сабмишен: {cfg.data.submission_path}/{cfg.experiment.wandb.name}")
 
 
 if __name__ == "__main__":

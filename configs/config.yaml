@@ -26,13 +26,14 @@ data:
     - SibSp
     - Parch
     - Fare                    # или LogFare (log1p от Fare)
+    - FamilySize
+    - IsAlone
+
   cat_features:
     - Sex
     - Embarked
     - Title
-    - FamilySize
     - Pclass
-
 
 # Препроцессинг
 preprocessing:

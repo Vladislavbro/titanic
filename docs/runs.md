@@ -52,7 +52,7 @@ uv run main.py -m model=mlp model.scheduler=none,cosine model.lr=1e-2,1e-3
 uv run python -m scripts.sandbox_mlp
 ```
 
-Печатает лосс, auc и accuracy по эпохам, пишет `submissions/sandbox_mlp.csv`.
+Печатает лосс, auc и accuracy по эпохам, пишет `submissions/sandbox_mlp/sandbox_mlp.csv`.
 
 ## Optuna
 
@@ -66,11 +66,14 @@ uv run main.py -m model=xgboost  hydra/sweeper=optuna_xgboost
 
 ## Ансамбли
 
-`blend.py` читает `submissions/*__oof.csv` и `*__test_proba.csv`, поэтому сначала прогоняются базовые модели. Список моделей, порог, варианты смешивания и мета-модели — `configs/ensemble/default.yaml`.
+`blend.py` читает `<папка прогона>/oof.csv` и `<папка прогона>/test_proba.csv`, поэтому сначала прогоняются базовые модели. Список моделей, порог, варианты смешивания и мета-модели — `configs/ensemble/default.yaml`.
+
+Папку прогона блендер выбирает так: `ensemble.runs.<модель>` из конфига, иначе папка с именем модели, иначе единственная папка вида `<модель>_*`. Если подходящих папок несколько — падает со списком:
 
 ```bash
 uv run blend.py
 uv run blend.py ensemble.models=[catboost,xgboost,mlp] ensemble.variants=[mean,stack_logreg]
+uv run blend.py +ensemble.runs.catboost=catboost_model.depth=3
 ```
 
-Варианты: `mean` — среднее вероятностей, `vote` — большинство голосов, `stack_logreg` и `stack_ridge` — мета-модель поверх OOF. Скор считается по OOF, сабмиты — `submissions/ensemble_<вариант>.csv`.
+Варианты: `mean` — среднее вероятностей, `vote` — большинство голосов, `stack_logreg` и `stack_ridge` — мета-модель поверх OOF. Скор считается по OOF, сабмиты — `submissions/ensemble_<вариант>/ensemble_<вариант>.csv`.

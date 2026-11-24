@@ -7,6 +7,7 @@ defaults:
 
 ensemble:
   models: [catboost, lightgbm, xgboost, rf, mlp, logreg, knn]
+  runs: {}                  # модель: имя папки прогона; пусто — искать по имени модели
   threshold: 0.5            # порог перевода вероятности в класс
   variants: [mean, vote, stack_logreg, stack_ridge]
   metas:
