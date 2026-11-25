@@ -2,7 +2,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 from omegaconf import DictConfig
+from sklearn.pipeline import Pipeline
 
 from titanic.features import make_features
 
@@ -68,3 +71,52 @@ def save_submission(
         {cfg.data.id_col: test_ids, cfg.data.target_col: (probs >= 0.5).astype(int)}
     )
     submission.to_csv(path / f"{path.name}.csv", index=False)
+
+
+def _extract_importance(model: object) -> np.ndarray | None:
+    """Извлекает важность признаков из обученной модели."""
+    if hasattr(model, "feature_importances_"):
+        return np.asarray(model.feature_importances_, dtype=float)
+    if hasattr(model, "coef_"):
+        return np.abs(np.asarray(model.coef_, dtype=float)).ravel()
+    return None
+
+
+def save_feature_importance(
+    pipes: list[Pipeline],
+    cfg: DictConfig,
+    name: str | None = None,
+) -> None:
+    """Сохраняет таблицу и график важности признаков по фолдам."""
+    folds: dict[str, pd.Series] = {}
+    for idx, pipe in enumerate(pipes):
+        imp = _extract_importance(pipe.named_steps["model"])
+        if imp is None:
+            return
+        names = pipe.named_steps["preprocess"].get_feature_names_out()
+        folds[f"fold_{idx}"] = pd.Series(imp, index=names)
+
+    fold_df = pd.DataFrame(folds).fillna(0.0)
+    table = pd.DataFrame(
+        {
+            "feature": fold_df.index,
+            "mean": fold_df.mean(axis=1),
+            "std": fold_df.std(axis=1, ddof=0),
+        }
+    )
+    for col in fold_df.columns:
+        table[col] = fold_df[col]
+    table = table.sort_values("mean", ascending=False).reset_index(drop=True)
+
+    path = run_dir(cfg, name)
+    table.to_csv(path / "feature_importance.csv", index=False)
+
+    fig = Figure(figsize=(8, max(4, len(table) * 0.35)))
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot()
+    ax.barh(table["feature"], table["mean"], xerr=table["std"])
+    ax.invert_yaxis()
+    ax.set_xlabel("Importance")
+    ax.set_title(path.name)
+    fig.tight_layout()
+    fig.savefig(path / "feature_importance.png", dpi=150)

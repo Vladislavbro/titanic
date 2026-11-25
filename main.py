@@ -2,7 +2,12 @@ import hydra
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from titanic.data import prepare_data, save_oof, save_submission
+from titanic.data import (
+    prepare_data,
+    save_feature_importance,
+    save_oof,
+    save_submission,
+)
 from titanic.train import predict, run
 
 load_dotenv()
@@ -15,6 +20,7 @@ def main(cfg: DictConfig) -> float:
     preds = predict(pipes, X_test)
     save_oof(cfg, train_ids, y_train, oof)
     save_submission(test_ids, preds, cfg)
+    save_feature_importance(pipes, cfg)
 
     return score
 
