@@ -15,9 +15,7 @@
     - [x] FarePerPerson = Fare / TicketGroupSize
     - [x] Сгруппировать редкие Title в 5 категорий (Mr, Mrs, Miss, Master, Rare). Смотри ноутбук
     - [x] Заполннять Age по (Title, Pclass) вместо медианы
-- [ ] Заменить один StratifiedKFold(5) на RepeatedStratifiedKFold(n_splits=5, n_repeats=10)
-- [ ] протестировать метрику валидации на logloss
-- [ ] перебрать разные пороги для вероятности в конце
+- [x] Заменить один StratifiedKFold(5) на RepeatedStratifiedKFold(n_splits=5, n_repeats=10)
 
 
 

@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig
 
-from titanic.ansembles import run
+from titanic.ensembles import run
 
 
 @hydra.main(config_path="configs", config_name="ensemble/default", version_base=None)

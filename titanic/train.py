@@ -27,7 +27,6 @@ def make_num_pipeline(impute: str, add_flag: bool, scale: bool) -> Pipeline:
         strategy=impute,
         add_indicator=add_flag,
     )
-    steps = [("impute", imputer)]
     steps: list[tuple[str, TransformerMixin]] = [("impute", imputer)]
 
     # Масштабирование
