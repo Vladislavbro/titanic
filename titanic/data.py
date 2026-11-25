@@ -23,8 +23,7 @@ def prepare_data(
     X_train, X_test, y_train = load_data(cfg)
     train_ids = X_train[cfg.data.id_col]
     test_ids = X_test[cfg.data.id_col]
-    X_train = make_features(X_train, cfg.data)
-    X_test = make_features(X_test, cfg.data)
+    X_train, X_test = make_features(X_train, X_test)
     return X_train, X_test, y_train, train_ids, test_ids
 
 

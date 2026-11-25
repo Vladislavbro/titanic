@@ -1,27 +1,30 @@
 import numpy as np
 import pandas as pd
-from omegaconf import DictConfig
+
+COMMON_TITLES = {"Mr", "Mrs", "Miss", "Master"}
+TITLE_ALIASES = {"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"}
 
 
-def make_features(df: pd.DataFrame, cfg_data: DictConfig) -> pd.DataFrame:
-    """Создаёт фичи и оставляет колонки из конфига."""
-    df = df.copy()
-    columns = list(cfg_data.num_features) + list(cfg_data.cat_features)
+def make_features(
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Добавляет статичные фичи в train и test."""
+    df = pd.concat([X_train, X_test], ignore_index=True)
 
-    if "LogFare" in columns:
-        df["LogFare"] = np.log1p(df["Fare"])
+    df["LogFare"] = np.log1p(df["Fare"])
 
-    if "Title" in columns:
-        df["Title"] = df["Name"].str.extract(r",\s*([^.]+)\.")[0]
+    title = df["Name"].str.extract(r",\s*([^.]+)\.")[0].replace(TITLE_ALIASES)
+    df["Title"] = title.where(title.isin(COMMON_TITLES), "Rare")
 
-    if "Deck" in columns:
-        df["Deck"] = df["Cabin"].str[0]
+    df["Deck"] = df["Cabin"].str[0]
+    df["FamilySize"] = df["SibSp"] + df["Parch"] + 1
+    df["IsAlone"] = (df["FamilySize"] == 1).astype(int)
 
-    if "FamilySize" in columns:
-        df["FamilySize"] = df["SibSp"] + df["Parch"] + 1
+    df["TicketGroupSize"] = df.groupby("Ticket")["Ticket"].transform("count")
+    df["FarePerPerson"] = df["Fare"] / df["TicketGroupSize"]
 
-    if "FamilySize" in columns and "IsAlone" in columns:
-        df["IsAlone"] = 0
-        df.loc[df["FamilySize"] == 1, "IsAlone"] = 1
-
-    return df[columns]
+    n_train = len(X_train)
+    train_out = df.iloc[:n_train].copy().set_axis(X_train.index)
+    test_out = df.iloc[n_train:].copy().set_axis(X_test.index)
+    return train_out, test_out

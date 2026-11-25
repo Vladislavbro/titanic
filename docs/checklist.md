@@ -9,12 +9,12 @@
 
 ## Выжимаем результат на LB:
 - [x] провести тесты с задушенным катбустом
-- [ ] перенести создание фичей в одну функцию
+- [x] перенести создание фичей в одну функцию
 - [ ] добавить фичи: 
-    - [ ] TicketGroupSize - на скольких человек брали билет: считать по train + test
-    - [ ] FarePerPerson = Fare / TicketGroupSize
+    - [x] TicketGroupSize - на скольких человек брали билет: считать по train + test
+    - [x] FarePerPerson = Fare / TicketGroupSize
     - [ ] Заполннять Age по (Title, Pclass) вместо медианы
-    - [ ] Сгруппировать редкие Title в 5 категорий (Mr, Mrs, Miss, Master, Rare). Смотри ноутбук
+    - [x] Сгруппировать редкие Title в 5 категорий (Mr, Mrs, Miss, Master, Rare). Смотри ноутбук
     - [ ] 
 - [ ] Заменить один StratifiedKFold(5) на RepeatedStratifiedKFold(n_splits=5, n_repeats=10)
 - [ ] протестировать метрику валидации на logloss
