@@ -28,6 +28,8 @@ data:
     - Fare                    # или LogFare (log1p от Fare)
     - FamilySize
     - IsAlone
+    - TicketGroupSize
+    - FarePerPerson
 
   cat_features:
     - Sex

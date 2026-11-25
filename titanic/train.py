@@ -17,6 +17,7 @@ from sklearn.preprocessing import (
 )
 
 import wandb
+from titanic.features import FoldFeatures
 
 
 def make_num_pipeline(impute: str, add_flag: bool, scale: bool) -> Pipeline:
@@ -85,6 +86,7 @@ def build_pipeline(cfg: DictConfig) -> Pipeline:
     )
     return Pipeline(
         [
+            ("fold_features", FoldFeatures()),  # заполняет пропуски возраста
             ("preprocess", preprocessor),
             ("model", instantiate(cfg.model)),
         ]
