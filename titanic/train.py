@@ -7,7 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 from sklearn.base import TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import cross_val_predict, cross_validate
+from sklearn.metrics import get_scorer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (
     OneHotEncoder,
@@ -99,13 +99,27 @@ def fit_cv(
     """Считает CV, возвращает модели фолдов, OOF-вероятности класса 1, скоры и метрику."""
     cv = instantiate(cfg.validation.cv)
     metric = cfg.validation.metric
-    pipe = build_pipeline(cfg)
-    res = cross_validate(pipe, X, y, cv=cv, scoring=metric, return_estimator=True)
+    scorer = get_scorer(metric)
 
-    # out-of-fold (oof): сохраняем вероятность класса 1 для объектов, на которых каждая модель не училась. Берем вероятность класса 1
-    oof = cross_val_predict(pipe, X, y, cv=cv, method="predict_proba")[:, 1]
-    scores = res["test_score"]  # предсказания по фолдам
-    pipes = res["estimator"]  # n_splits моделей
+    oof_sum = np.zeros(len(X))
+    oof_cnt = np.zeros(len(X))
+    pipes = []
+    scores = []
+
+    for train_idx, val_idx in cv.split(X, y):
+        pipe = build_pipeline(cfg)
+        pipe.fit(X.iloc[train_idx], y.iloc[train_idx])
+        proba = pipe.predict_proba(X.iloc[val_idx])[:, 1]
+        score = scorer(pipe, X.iloc[val_idx], y.iloc[val_idx])
+
+        oof_sum[val_idx] += proba
+        oof_cnt[val_idx] += 1
+        scores.append(score)
+        pipes.append(pipe)
+
+    oof = oof_sum / oof_cnt
+    scores = np.array(scores)
+
     return pipes, oof, scores, metric
 
 

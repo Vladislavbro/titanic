@@ -5,7 +5,7 @@ import pandas as pd
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import cross_val_predict
+from sklearn.model_selection import cross_val_score
 
 from titanic.data import ROOT
 
@@ -59,47 +59,51 @@ def load_test(cfg: DictConfig) -> tuple[pd.Index, np.ndarray]:
 
 
 def mean_variant(
-    cfg: DictConfig, oof: np.ndarray, test: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Усредняет вероятности моделей и переводит их в классы."""
+    cfg: DictConfig, oof: np.ndarray, y: np.ndarray, test: np.ndarray
+) -> tuple[float, np.ndarray]:
+    """Усредняет вероятности моделей и возвращает OOF-точность и тестовые классы."""
     threshold = cfg.ensemble.threshold
+    oof_preds = (oof.mean(axis=1) >= threshold).astype(int)
     return (
-        (oof.mean(axis=1) >= threshold).astype(int),
+        float(accuracy_score(y, oof_preds)),
         (test.mean(axis=1) >= threshold).astype(int),
     )
 
 
 def vote_variant(
-    cfg: DictConfig, oof: np.ndarray, test: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Выбирает класс, за который проголосовало большинство моделей."""
+    cfg: DictConfig, oof: np.ndarray, y: np.ndarray, test: np.ndarray
+) -> tuple[float, np.ndarray]:
+    """Выбирает класс большинством голосов и возвращает OOF-точность и тестовые классы."""
     threshold = cfg.ensemble.threshold
     half = 0.5
+    oof_preds = ((oof >= threshold).mean(axis=1) > half).astype(int)
     return (
-        ((oof >= threshold).mean(axis=1) > half).astype(int),
+        float(accuracy_score(y, oof_preds)),
         ((test >= threshold).mean(axis=1) > half).astype(int),
     )
 
 
 def stack_variant(
     cfg: DictConfig, name: str, oof: np.ndarray, y: np.ndarray, test: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Обучает мета-модель на OOF-вероятностях и оценивает её по фолдам."""
+) -> tuple[float, np.ndarray]:
+    """Обучает мета-модель на OOF-вероятностях и возвращает CV-точность и тестовые классы."""
     meta = instantiate(cfg.ensemble.metas[name])
     cv = instantiate(cfg.validation.cv)
-    oof_preds = cross_val_predict(meta, oof, y, cv=cv)
+    score = float(
+        cross_val_score(meta, oof, y, cv=cv, scoring=cfg.validation.metric).mean()
+    )
     meta.fit(oof, y)
-    return oof_preds, meta.predict(test)
+    return score, meta.predict(test)
 
 
 def build_variant(
     cfg: DictConfig, name: str, oof: np.ndarray, y: np.ndarray, test: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Считает OOF- и тестовые предсказания для варианта ансамбля."""
+) -> tuple[float, np.ndarray]:
+    """Считает OOF-точность и тестовые предсказания для варианта ансамбля."""
     if name == "mean":
-        return mean_variant(cfg, oof, test)
+        return mean_variant(cfg, oof, y, test)
     if name == "vote":
-        return vote_variant(cfg, oof, test)
+        return vote_variant(cfg, oof, y, test)
     return stack_variant(cfg, name, oof, y, test)
 
 
@@ -120,9 +124,9 @@ def run(cfg: DictConfig) -> pd.DataFrame:
 
     rows = []
     for name in cfg.ensemble.variants:
-        oof_preds, test_preds = build_variant(cfg, name, oof, y, test)
+        score, test_preds = build_variant(cfg, name, oof, y, test)
         save_submission(cfg, name, ids, test_preds)
-        rows.append({"variant": name, "oof_accuracy": accuracy_score(y, oof_preds)})
+        rows.append({"variant": name, "oof_accuracy": score})
 
     table = pd.DataFrame(rows).sort_values("oof_accuracy", ascending=False)
     table.to_csv(ROOT / cfg.data.submission_path / "ensemble_results.csv", index=False)

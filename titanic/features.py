@@ -34,6 +34,7 @@ def make_features(
     test_out = df.iloc[n_train:].copy().set_axis(X_test.index)
     return train_out, test_out
 
+
 # 1. BaseEstimator даёт методы get_params / set_params,
 #    чтобы cross_validate мог пересоздавать объекты класса для каждого фолда.
 # 2. TransformerMixin добавляет метод fit_transform(X, y), который вызывает fit, потом transform.

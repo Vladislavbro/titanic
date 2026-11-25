@@ -52,9 +52,9 @@ preprocessing:
 validation:
   metric: accuracy
   cv:
-    _target_: sklearn.model_selection.StratifiedKFold  # для 80 /20 StratifiedShuffleSplit
+    _target_: sklearn.model_selection.RepeatedStratifiedKFold  # многократный stratify K-Fold (сглаживает шум разбиения)
     n_splits: 5
-    shuffle: true
+    n_repeats: 10
     random_state: ${experiment.seed}
 
 # 
